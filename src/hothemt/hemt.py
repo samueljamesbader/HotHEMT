@@ -264,12 +264,11 @@ class HEMT(DBBackedIDMixin):
         for yfore,yback in yfbs:
             yield xlef,xrit,yfore,yback
 
-    def get_mesh_path(self, force_remesh:bool=False, show_gui:bool=False, as_vtk:bool=False) -> Path:
+    def get_mesh_path(self, force_remesh:bool=False, show_gui:bool=False) -> Path:
         """Get the path to the 3D mesh file, generating it if necessary.
         Args:
             force_remesh: if True, remesh even if a mesh file already exists
             show_gui: if True, show the gmsh GUI while meshing
-            as_vtk: if True, return a .vtk file (converted from .mesh), otherwise return .mesh file
         Returns:
             Path to the mesh file
         """
@@ -282,22 +281,14 @@ class HEMT(DBBackedIDMixin):
         vtk_filepath = get_mesh_dir() / f'hemt3d_{self.meshid}.vtk'
         get_mesh_dir().mkdir(exist_ok=True, parents=True)
 
-        if as_vtk:
-            gmsh_filepath.unlink(missing_ok=True)
-            if force_remesh: vtk_filepath.unlink(missing_ok=True)
-            if not vtk_filepath.exists():
-                self.make_mesh(gmsh_filepath,show_gui=show_gui)
-                assert gmsh_filepath.exists()
-                subprocess.run(['sfepy-convert', '-d','3', str(gmsh_filepath), str(vtk_filepath)])
-                gmsh_filepath.unlink()
-            return vtk_filepath
-        else:
-            if force_remesh: gmsh_filepath.unlink(missing_ok=True)
-            if not gmsh_filepath.exists():
-                vtk_filepath.unlink(missing_ok=True)
-                self.make_mesh(gmsh_filepath,show_gui=show_gui)
-                assert gmsh_filepath.exists()
-            return gmsh_filepath
+        if force_remesh: gmsh_filepath.unlink(missing_ok=True)
+        if not gmsh_filepath.exists():
+            vtk_filepath.unlink(missing_ok=True)
+            self.make_mesh(gmsh_filepath,show_gui=show_gui)
+            assert gmsh_filepath.exists()
+        elif show_gui: self.visualize_mesh()
+        return gmsh_filepath
+        
     
     def make_mesh(self, filepath:Path, show_gui:bool=True):
         """Make the 3D mesh file (raw output from gmsh, typically .mesh) at the specified path.
@@ -518,6 +509,7 @@ class HEMT(DBBackedIDMixin):
             # Also I like to hide the 3-D volumes when viewing the mesh
             # Can easily make them visible in gmsh GUI if needed
             # or comment this out
+            all_vols = gmsh.model.getEntities(3)
             for ivol,(_,vol) in enumerate(all_vols):
                 gmsh.model.setVisibility([(3,vol)], False)
 
@@ -903,6 +895,10 @@ class HEMT(DBBackedIDMixin):
         plt.tight_layout()
         plt.show()
 
+    def visualize_mesh(self):
+        """Visualize the 3D mesh with gmsh."""
+        import os
+        os.system(f'gmsh "{self.get_mesh_path()}"')
    
     def visualize_solution_3d(self):
         """Visualize the 3D solution with sfepy-view."""
@@ -946,7 +942,6 @@ def cli_vis():
         elif args.plot.lower() in ['3d']:
             h.visualize_solution_3d()
         elif args.plot.lower() in ['mesh']:
-            import os
-            os.system(f'gmsh "{h.get_mesh_path()}"')
+            h.visualize_mesh()
         elif args.plot.lower() in ['regs', 'regions']:
             h.visualize_regs_3d()
