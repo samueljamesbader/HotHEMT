@@ -11,7 +11,7 @@ authors = [
 description = "Open-source HEMT thermal simulations"
 readme = "README.md"
 requires-python = ">=3.12"
-license-files = { paths = ["LICENSE.txt"] }
+license = { file = "LICENSE.txt" }
 
 dependencies = [
     # for making the mesh
