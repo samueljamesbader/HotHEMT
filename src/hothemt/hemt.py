@@ -47,12 +47,14 @@ class HEMT(DBBackedIDMixin):
     """thickness of GaN layer"""
     t_Rel: float
     """thickness of relaxation layer"""
-    l_chip: float
-    """dimension of the chiplet """
+    l_chipx: float
+    """dimension of the chiplet in x direction"""
+    l_chipy: float
+    """dimension of the chiplet in y direction"""
     t_mesa: float = 0
     """thickness of the mesa (must be < t_GaN)"""
     t_Sub: float = None # type: ignore
-    """thickness of substrate layer (defaults to l_chip/2 - t_GaN - t_Rel) """
+    """thickness of substrate layer (defaults to max(l_chipx,l_chipy)/2 - t_GaN - t_Rel) """
 
     # Define the material parameters and boundary conditions
     k300_GaN: Annotated[float,"NotMesh"] = 150 * W/(m*K)
@@ -96,7 +98,7 @@ class HEMT(DBBackedIDMixin):
     def __post_init__(self):
         super().__post_init__()
         if self.t_Sub is None:
-            self.t_Sub = self.l_chip/2 - self.t_GaN - self.t_Rel
+            self.t_Sub = max(self.l_chipx,self.l_chipy)/2 - self.t_GaN - self.t_Rel
         if self.dont_mesh_contacts and self.h_con!=0:
             raise ValueError("dont_mesh_contacts=True only allowed if h_con=0")
         if self.dont_mesh_gates and self.h_gat!=0:
@@ -151,13 +153,13 @@ class HEMT(DBBackedIDMixin):
             xcen = ((isrcx+1)//2)*Lhdh+(isrcx//2)*Lhsh - offset
             xlef = xcen - self.L_h/2
             xrit = xcen + self.L_h/2
-            assert xrit<=self.l_chip/2, "Chip too small for the number of fingers!"
+            assert xrit<=self.l_chipx/2, "Chip too small for the number of fingers!"
 
             for isrcy in range(self.rows):
                 ycen = self.row_pitch*isrcy - (self.rows-1)*self.row_pitch/2
                 yfore = ycen - self.w_f/2
                 yback = ycen + self.w_f/2
-                assert yback<=self.l_chip/2, "Chip too small for the number of rows!"
+                assert yback<=self.l_chipy/2, "Chip too small for the number of rows!"
 
                 if quarter_only:
                     if xrit < 0: continue
@@ -202,7 +204,7 @@ class HEMT(DBBackedIDMixin):
                     else:
                         xlef=xrit_hs + self.L_ho + self.lg + self.Lgs
                         xrit=xlef + self.Lcs
-                assert xrit<=self.l_chip/2, "Chip too small for the number of fingers including contacts!"
+                assert xrit<=self.l_chipx/2, "Chip too small for the number of fingers including contacts!"
                 yfore=yfore_hs; yback=yback_hs
                 if quarter_only:
                     if xrit < 0: continue
@@ -238,7 +240,7 @@ class HEMT(DBBackedIDMixin):
             else:
                 xrit=xrit_hs + self.L_ho 
                 xlef=xrit + self.lg
-            assert xrit<=self.l_chip/2, "Chip too small for the number of fingers including gates!"
+            assert xrit<=self.l_chipx/2, "Chip too small for the number of fingers including gates!"
             yfore=yfore_hs; yback=yback_hs
             if quarter_only:
                 if xrit < 0: continue
@@ -305,12 +307,12 @@ class HEMT(DBBackedIDMixin):
             kernel=gmsh.model.occ
 
             # Make the overall chip
-            top_surface=kernel.addRectangle(0, 0, -self.t_mesa, self.l_chip/2, self.l_chip/2)
+            top_surface=kernel.addRectangle(0, 0, -self.t_mesa, self.l_chipx/2, self.l_chipy/2)
             extrusion=kernel.extrude([(2, top_surface)], 0, 0, -self.t_GaN+self.t_mesa-self.t_Rel-self.t_Sub)
 
             # Make the GaN/Rel interface surface
-            GaNRel_surface=kernel.addRectangle(0, 0, -self.t_GaN, self.l_chip/2, self.l_chip/2)
-            RelSub_surface=kernel.addRectangle(0, 0, -self.t_GaN-self.t_Rel, self.l_chip/2, self.l_chip/2)
+            GaNRel_surface=kernel.addRectangle(0, 0, -self.t_GaN, self.l_chipx/2, self.l_chipy/2)
+            RelSub_surface=kernel.addRectangle(0, 0, -self.t_GaN-self.t_Rel, self.l_chipx/2, self.l_chipy/2)
             kernel.synchronize()
             kernel.fragment(extrusion,[(2, GaNRel_surface),(2, RelSub_surface)])
             kernel.synchronize()
@@ -633,8 +635,8 @@ class HEMT(DBBackedIDMixin):
                        f'vertices in (z < {(-self.t_GaN-self.t_Rel-self.t_Sub+tol):.8f})','facet')
         else:
             outr = domain.create_region('Outer',
-                          f' vertices in (x > {(self.l_chip/2-tol):.8f}) +s'\
-                          f' vertices in (y > {(self.l_chip/2-tol):.8f})', 'facet')
+                          f' vertices in (x > {(self.l_chipx/2-tol):.8f}) +s'\
+                          f' vertices in (y > {(self.l_chipy/2-tol):.8f})', 'facet')
             sioutr = domain.create_region('SiOuter',
                           f' vertices in (z < {(-self.t_GaN-self.t_Rel+tol):.8f}) *s'\
                           f' r.{outr.name}' # type: ignore
@@ -668,8 +670,8 @@ class HEMT(DBBackedIDMixin):
                     r=np.sqrt((coor**2).sum(axis=1))
                     x=coor[:,0]; y=coor[:,1]; z=coor[:,2]
 
-                    rhat_dot_nhat_where_nhat_along_x = (np.isclose(x,self.l_chip/2,atol=tol) * (x/r))
-                    rhat_dot_nhat_where_nhat_along_y = (np.isclose(y,self.l_chip/2,atol=tol) * (y/r))
+                    rhat_dot_nhat_where_nhat_along_x = (np.isclose(x,self.l_chipx/2,atol=tol) * (x/r))
+                    rhat_dot_nhat_where_nhat_along_y = (np.isclose(y,self.l_chipy/2,atol=tol) * (y/r))
                     rhat_dot_nhat_where_nhat_along_z = (np.isclose(z,-self.t_GaN-self.t_Rel-self.t_Sub,atol=tol) * (-z/r))
                     rhat_dot_nhat = rhat_dot_nhat_where_nhat_along_x + rhat_dot_nhat_where_nhat_along_y + rhat_dot_nhat_where_nhat_along_z
                     rhat_dot_nhat_times_one_over_r = rhat_dot_nhat / r
@@ -816,12 +818,12 @@ class HEMT(DBBackedIDMixin):
                 xcuts=profiles['xcuts_by_depth']={}
                 subs_depths=[d for d in np.linspace(0,self.t_GaN+self.t_Rel+self.t_Sub,5) if d>self.t_GaN+self.t_Rel+tol]
                 for depth in chain(np.linspace(0,self.t_GaN+self.t_Rel,7),subs_depths):
-                    pars,vals=LineProbe([0,y_for_cut,-depth], [self.l_chip/2,y_for_cut,-depth], int(self.l_chip/2/(.01*um))).probe(u) # type: ignore
+                    pars,vals=LineProbe([0,y_for_cut,-depth], [self.l_chipx/2,y_for_cut,-depth], int(self.l_chipx/2/(.01*um))).probe(u) # type: ignore
                     xcuts[depth]={'x [um]': (pars/um).tolist(),
                                   'T [K]': (np.ravel(vals)/K).tolist()}
                 ycuts=profiles['ycuts_by_depth']={}
                 for depth in chain(np.linspace(0,self.t_GaN+self.t_Rel,7,endpoint=True),subs_depths):
-                    pars,vals=LineProbe([x_for_cut,0,-depth], [x_for_cut,self.l_chip/2,-depth], int(self.l_chip/2/(.01*um))).probe(u) # type: ignore
+                    pars,vals=LineProbe([x_for_cut,0,-depth], [x_for_cut,self.l_chipy/2,-depth], int(self.l_chipy/2/(.01*um))).probe(u) # type: ignore
                     ycuts[depth]={'y [um]': (pars/um).tolist(),
                                   'T [K]': (np.ravel(vals)/K).tolist()}
                 pars,vals=LineProbe([x_for_cut,y_for_cut,0], [x_for_cut,y_for_cut,-(self.t_GaN+self.t_Rel+self.t_Sub)], # type: ignore
@@ -861,7 +863,7 @@ class HEMT(DBBackedIDMixin):
         plt.axhline(info_to_save['mean_source_temp']/K, color='k', ls='--')#, label='Mean source T')
         plt.xlabel(r'Position (along current-flow direction) [μm]')
         plt.ylabel(r'T [K]')
-        plt.xlim(-self.l_chip/2/um, self.l_chip/2/um)
+        plt.xlim(-self.l_chipx/2/um, self.l_chipx/2/um)
         plt.ylim(info_to_save['TA [K]'])
         plt.legend(title=r'Depth [μm]')
         plt.subplot(1,3,2)
@@ -877,7 +879,7 @@ class HEMT(DBBackedIDMixin):
         plt.legend(title=r'Depth [μm]')
         plt.xlabel(r'Position (along gate line direction) [μm]')
         plt.ylabel(r'T [K]')
-        plt.xlim(-self.l_chip/2/um, self.l_chip/2/um)
+        plt.xlim(-self.l_chipy/2/um, self.l_chipy/2/um)
         plt.ylim(info_to_save['TA [K]'])
         plt.legend(title=r'Depth [μm]')
         plt.subplot(1,3,3)
@@ -925,4 +927,3 @@ class HEMT(DBBackedIDMixin):
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
         plt.show()
-    

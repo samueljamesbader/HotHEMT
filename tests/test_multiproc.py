@@ -72,7 +72,7 @@ def test_multiproc_hemt():
             w_f=1*um, rows=1, row_pitch=7*um, n_f=1,
             lgs=.5*um, lg=.15*um,lgd=.5*um,lc=.5*um,
             L_h=.3*um, L_ho=0*um,
-            t_GaN=.5*um, t_Rel=.5*um, l_chip=3*um,
+            t_GaN=.5*um, t_Rel=.5*um, l_chipx=3*um, l_chipy=3*um,
             alpha_mesh=.1,
         )
         run_hemts([

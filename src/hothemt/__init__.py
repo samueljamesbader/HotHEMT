@@ -1,7 +1,6 @@
 __version__ = '0.0.1'
 
 from contextlib import contextmanager
-import sys
 from pathlib import Path
 import time
 from typing import Optional
@@ -50,13 +49,6 @@ def specific_sim_work_dir(SIM_WORK_DIR:Path|str|None, clear: bool=False):
 
 def get_default_sim_work_dir() -> Path:
     return DEFAULT_SIM_WORK_DIR
-
-def unload_my_imports(imports=['hemtthermal']):
-    modules_to_drop=[k for k in sys.modules if any((i in k for i in imports))]
-    if len(modules_to_drop):
-        print(f"Unloading {', '.join(sorted(modules_to_drop))}")
-    for k in modules_to_drop:
-        del sys.modules[k]
 
 um = 1.0
 nm = 1.0e-3 * um

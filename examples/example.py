@@ -19,7 +19,7 @@ def run_example(do_plots=True):
             L_h=.2*um, L_ho=0*um,
 
             # Layer thicknesses and simulation domain
-            t_GaN=.5*um, t_Rel=.5*um, t_mesa=.2*um, l_chip=10*um,
+            t_GaN=.5*um, t_Rel=.5*um, t_mesa=.2*um, l_chipx=10*um, l_chipy=10*um,
 
             # Conditions
             P_per_W=2*W/mm, T_A=300*K,

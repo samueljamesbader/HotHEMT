@@ -23,7 +23,7 @@ def analytical_RthWEff2D(hemt:HEMT):
     assert hemt.k300_Rel==hemt.k300_Sub, "Analytical solution only for equal conductivities"
     assert hemt.n_f==1, "Analytical solution only for single finger"
     assert hemt.rows==1, "Analytical solution only for single row"
-    assert hemt.w_f==hemt.l_chip, "Analytical solution only for infinite width"
+    assert hemt.w_f==hemt.l_chipy, "Analytical solution only for infinite width"
     if hemt.nthr_GaN!=0 or hemt.nthr_Rel!=0 or hemt.nthr_Sub!=0:
         raise NotImplementedError("Warning: 2D analytical solution only implemented for constant thermal conductivity")
     assert hemt.T_A==300*K, "Analytical solution only for T_A=300K"
@@ -33,7 +33,7 @@ def analytical_RthWEff2D(hemt:HEMT):
 
     t=hemt.t_GaN+hemt.t_Rel+hemt.t_Sub
     a=hemt.L_h/2
-    c=hemt.l_chip/2
+    c=hemt.l_chipx/2
     k=hemt.k300_GaN
     h=hemt.h_bot
     eps=a/c
@@ -86,8 +86,8 @@ def analytical_RthWEff3D(hemt: HEMT):
             raise NotImplementedError("Analytical solution only for GaN/Rel or Rel/Sub combined layer")
         a=hemt.L_h/2
         b=hemt.w_f/2
-        c=hemt.l_chip/2
-        d=hemt.l_chip/2
+        c=hemt.l_chipx/2
+        d=hemt.l_chipy/2
         kappa=k2/k1
         L=hemt.w_f
         Bi=hemt.h_bot*L/k1
@@ -137,7 +137,7 @@ def analytical_RthWEff3D(hemt: HEMT):
 
         print(f"RspreadW: {RsprW/(K*mm/W):.2f} K mm/W @ LP")
 
-        RslabW = Wtot * (t1/k1 + t2/k2 + 1/hemt.h_bot) / hemt.l_chip**2
+        RslabW = Wtot * (t1/k1 + t2/k2 + 1/hemt.h_bot) / (hemt.l_chipx*hemt.l_chipy)
         print(f"RslabW: {RslabW/(K*mm/W):.2f} K mm/W @ LP")
         RthWEff3D = RslabW + RsprW
         print(f"RthWEff3D: {RthWEff3D/(K*mm/W):.2f} K mm/W @ LP")
@@ -159,7 +159,7 @@ def analytical_RthWEff3D(hemt: HEMT):
         else:
             assert (1/hemt.h_bot) < .05*(1/k1 + 1/k2), "Bottom conductivity should be negligibly large for Kirchoff"
             # As per Bagnall 2014, treat mean temp of bottom as the T0 of Kirchoff
-            T0 = hemt.T_A + hemt.P_per_W * Wtot /(hemt.l_chip**2 * hemt.h_bot)  # Bagnall 2014, Eq 39
+            T0 = hemt.T_A + hemt.P_per_W * Wtot /(hemt.l_chipx * hemt.l_chipy * hemt.h_bot)  # Bagnall 2014, Eq 39
         n_th = hemt.nthr_GaN
         dtheta_top = hemt.P_per_W * RthWEff3D + hemt.T_A - T0
         Ttop = T0 * (1+(dtheta_top*(1-n_th)/T0))**(1/(1-n_th))
