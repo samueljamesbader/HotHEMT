@@ -24,7 +24,10 @@ class DBBackedIDMixin:
         assert len(potential_dbs)==1, f"No iddb.pkl file found in {sim_work_dir}"
         dbfile=potential_dbs[0]
         clsname=dbfile.stem.split('.')[0]
+        with open(dbfile,'rb') as f:
+            db=pickle.load(f)
         assert clsname in DBBackedIDMixin._registered_classes, f"Class {clsname} not registered"
+        assert db['class'] is DBBackedIDMixin._registered_classes[clsname], "Class mismatch, database corrupted?"
         return DBBackedIDMixin._registered_classes[clsname]
 
     @property
@@ -96,6 +99,6 @@ class DBBackedIDMixin:
                 with open(sim_work_dir/f"{cls.__name__}.iddb.pkl",'rb') as f:
                     cls._hemtids[sim_work_dir]=pickle.load(f)
             except:
-                cls._hemtids[sim_work_dir]={'sim':{},'mesh':{}}
+                cls._hemtids[sim_work_dir]={'sim':{},'mesh':{},'class':cls}
                 with open(sim_work_dir/f"{cls.__name__}.iddb.pkl",'wb') as f:
                     pickle.dump(cls._hemtids[sim_work_dir],f)

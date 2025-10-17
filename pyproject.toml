@@ -39,4 +39,4 @@ namespaces = false
 version = {attr = "hothemt.__version__"}
 
 [project.scripts]
-hhplot = "hothemt.hemt:cli_vis"
+hhplot = "hothemt.cli:cli_vis"
