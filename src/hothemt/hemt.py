@@ -93,6 +93,8 @@ class HEMT(DBBackedIDMixin):
     """if True, don't indicate the contact metals in the mesh (only allowed if h_con=0)"""
     dont_mesh_gates: bool = False
     """if True, don't indicate the gates in the mesh (only allowed if h_gat=0)"""
+    half_x: bool = True
+    """if True, only simulate x>0 and use mirror symmetry to capture the rest"""
 
     # Initialization and checks
     def __post_init__(self):
@@ -125,24 +127,24 @@ class HEMT(DBBackedIDMixin):
         """length from one heater to next when a drain contact is in-between"""
         return self.Lcd + 2*(self.Lgd - self.L_ho - self.L_h/2)
 
-    def iter_heaters(self, quarter_only: bool):
+    def iter_heaters(self, crop_symmetric: bool = True):
         """Iterate over the the heaters.
 
         Args:
-            quarter_only: if True, crop results and only return heaters in the first quadrant
+            crop_symmetric: if True, crop results and only return heaters in the symmetrically representative region
 
         Yields:
             (xlef,xrit,yfore,yback) of each heater
         """
         Lhsh = self.Lhsh
         Lhdh = self.Lhdh
-        if self.n_f==1:
+        if (self.n_f==1) and self.half_x:
+            assert self.h_gat==0, "Asymmetric single finger only allowed with h_gat=0"
             if self.Lhsh!=self.Lhdh:
                 assert self.t_mesa==0, "Asymmetric single finger only allowed with no mesa"
                 assert self.h_con==0, "Asymmetric single finger only allowed with h_con=0"
-                assert self.h_gat==0, "Asymmetric single finger only allowed with h_gat=0"
         else:
-            if self.n_f%2!=0:
+            if (self.n_f%2!=0) and self.half_x:
                 assert Lhsh==Lhdh, "Allowed cases for symmetric simplification: "\
                     "single finger, even number of fingers, or equal source and drain lengths with heat centered on gate"
                 assert self.h_gat==0 or (self.L_ho+self.L_h/2)==-self.lg/2, "Allowed cases for symmetric simplification: "\
@@ -161,22 +163,23 @@ class HEMT(DBBackedIDMixin):
                 yback = ycen + self.w_f/2
                 assert yback<=self.l_chipy/2, "Chip too small for the number of rows!"
 
-                if quarter_only:
-                    if xrit < 0: continue
-                    xlef = max(xlef,0)
+                if crop_symmetric:
+                    if self.half_x:
+                        if xrit < 0: continue
+                        xlef = max(xlef,0)
                     if yback < 0: continue
                     yfore = max(yfore,0)
 
                 yield (xlef, xrit, yfore, yback)
 
-    def iter_contacts(self, quarter_only: bool, even_if_not_meshing: bool=False):
+    def iter_contacts(self, crop_symmetric: bool, even_if_not_meshing: bool=False):
         """Iterate over the the contacts.
 
         By default, will yield no results if dont_mesh_contacts=True,
         but this can be overridden with even_if_not_meshing=True.
 
         Args:
-            quarter_only: if True, crop results and only return contacts in the first quadrant
+            crop_symmetric: if True, crop results and only return contacts in the symmetrically representative region
             even_if_not_meshing: if True, yield the contact positions even if dont_mesh_contacts=True
         Yields:
             (xlef,xrit,yfore,yback) of each contact
@@ -185,10 +188,11 @@ class HEMT(DBBackedIDMixin):
         on_first_x=True
         contact_to_left_is_source=True
         xlef_hs_prev=None
-        for (xlef_hs, xrit_hs, yfore_hs, yback_hs) in self.iter_heaters(quarter_only=False):
+        for (xlef_hs, xrit_hs, yfore_hs, yback_hs) in self.iter_heaters(crop_symmetric=False):
             if xlef_hs_prev and (xlef_hs_prev!=xlef_hs):
                 contact_to_left_is_source=not contact_to_left_is_source
                 on_first_x=False
+            xlef_hs_prev=xlef_hs
             for contact_side in (['left','right'] if on_first_x else ['right']):
                 if contact_side=='left':
                     if contact_to_left_is_source:
@@ -206,63 +210,66 @@ class HEMT(DBBackedIDMixin):
                         xrit=xlef + self.Lcs
                 assert xrit<=self.l_chipx/2, "Chip too small for the number of fingers including contacts!"
                 yfore=yfore_hs; yback=yback_hs
-                if quarter_only:
-                    if xrit < 0: continue
-                    xlef = max(xlef,0)
+                if crop_symmetric:
+                    if self.half_x:
+                        if xrit < 0: continue
+                        xlef = max(xlef,0)
                     if yback < 0: continue
                     yfore = max(yfore,0)
                 yield (xlef, xrit, yfore, yback)
-            xlef_hs_prev=xlef_hs
 
-    def iter_gates(self, quarter_only: bool, even_if_not_meshing: bool=False):
+    def iter_gates(self, crop_symmetric: bool, even_if_not_meshing: bool=False):
         """Iterate over the the gates.
 
         By default, will yield no results if dont_mesh_gates=True,
         but this can be overridden with even_if_not_meshing=True.
 
         Args:
-            quarter_only: if True, crop results and only return gates in the first quadrant
+            crop_symmetric: if True, crop results and only return gates in the symmetrically representative region
             even_if_not_meshing: if True, yield the gate positions even if dont_mesh_gates=True
         Yields:
             (xlef,xrit,yfore,yback) of each gate
         """
         if self.dont_mesh_gates and (not even_if_not_meshing): return
-        on_first_x=True
         contact_to_left_is_source=True
         xlef_hs_prev=None
-        for (xlef_hs, xrit_hs, yfore_hs, yback_hs) in self.iter_heaters(quarter_only=False):
+        for (xlef_hs, xrit_hs, yfore_hs, yback_hs) in self.iter_heaters(crop_symmetric=False):
             if xlef_hs_prev and (xlef_hs_prev!=xlef_hs):
                 contact_to_left_is_source=not contact_to_left_is_source
+            xlef_hs_prev=xlef_hs
                 
             if contact_to_left_is_source:
                 xrit=xlef_hs - self.L_ho 
                 xlef=xrit - self.lg
             else:
-                xrit=xrit_hs + self.L_ho 
-                xlef=xrit + self.lg
+                xlef=xrit_hs + self.L_ho 
+                xrit=xlef + self.lg
             assert xrit<=self.l_chipx/2, "Chip too small for the number of fingers including gates!"
             yfore=yfore_hs; yback=yback_hs
-            if quarter_only:
-                if xrit < 0: continue
-                xlef = max(xlef,0)
+            if crop_symmetric:
+                if self.half_x:
+                    if xrit < 0: continue
+                    xlef = max(xlef,0)
                 if yback < 0: continue
                 yfore = max(yfore,0)
             yield (xlef, xrit, yfore, yback)
-        xlef_hs_prev=xlef_hs
 
 
-    def iter_actives(self, quarter_only: bool):
+    def iter_actives(self, crop_symmetric: bool):
         """Iterate over the active device areas (mesa top surfaces).
         Args:
-            quarter_only: if True, crop results and only return actives in the first quadrant
+            crop_symmetric: if True, crop results and only return actives in the symmetrically representative region
         Yields:
             (xlef,xrit,yfore,yback) of each active area
         """
         xrit= max(xrit_c for (xlef_c, xrit_c, yfore_c, yback_c)
-                    in self.iter_contacts(quarter_only=quarter_only,even_if_not_meshing=True))
-        xlef= 0 if quarter_only else -xrit
+                    in self.iter_contacts(crop_symmetric=crop_symmetric,even_if_not_meshing=True))
+        if (crop_symmetric and self.half_x): xlef=0
+        else:
+            xlef= min(xlef_c for (xlef_c, xrit_c, yfore_c, yback_c)
+                        in self.iter_contacts(crop_symmetric=crop_symmetric,even_if_not_meshing=True))
         yfbs=set((yfore_c,yback_c) for (xlef_c, xrit_c, yfore_c, yback_c)
-                 in self.iter_contacts(quarter_only=quarter_only,even_if_not_meshing=True))
+                 in self.iter_contacts(crop_symmetric=crop_symmetric,even_if_not_meshing=True))
         for yfore,yback in yfbs:
             yield xlef,xrit,yfore,yback
 
@@ -307,12 +314,19 @@ class HEMT(DBBackedIDMixin):
             kernel=gmsh.model.occ
 
             # Make the overall chip
-            top_surface=kernel.addRectangle(0, 0, -self.t_mesa, self.l_chipx/2, self.l_chipy/2)
+            if self.half_x:
+                top_surface=kernel.addRectangle(0, 0, -self.t_mesa, self.l_chipx/2, self.l_chipy/2)
+            else:
+                top_surface=kernel.addRectangle(-self.l_chipx/2, 0, -self.t_mesa, self.l_chipx, self.l_chipy/2)
             extrusion=kernel.extrude([(2, top_surface)], 0, 0, -self.t_GaN+self.t_mesa-self.t_Rel-self.t_Sub)
 
             # Make the GaN/Rel interface surface
-            GaNRel_surface=kernel.addRectangle(0, 0, -self.t_GaN, self.l_chipx/2, self.l_chipy/2)
-            RelSub_surface=kernel.addRectangle(0, 0, -self.t_GaN-self.t_Rel, self.l_chipx/2, self.l_chipy/2)
+            if self.half_x:
+                GaNRel_surface=kernel.addRectangle(0, 0, -self.t_GaN, self.l_chipx/2, self.l_chipy/2)
+                RelSub_surface=kernel.addRectangle(0, 0, -self.t_GaN-self.t_Rel, self.l_chipx/2, self.l_chipy/2)
+            else:
+                GaNRel_surface=kernel.addRectangle(-self.l_chipx/2, 0, -self.t_GaN, self.l_chipx, self.l_chipy/2)
+                RelSub_surface=kernel.addRectangle(-self.l_chipx/2, 0, -self.t_GaN-self.t_Rel, self.l_chipx, self.l_chipy/2)
             kernel.synchronize()
             kernel.fragment(extrusion,[(2, GaNRel_surface),(2, RelSub_surface)])
             kernel.synchronize()
@@ -321,7 +335,7 @@ class HEMT(DBBackedIDMixin):
             if self.t_mesa>0:
                 active_surfaces=[
                     kernel.addRectangle(xlef, yfore , -self.t_mesa, (xrit-xlef), (yback-yfore))
-                        for (xlef, xrit, yfore, yback) in self.iter_actives(quarter_only=True)]
+                        for (xlef, xrit, yfore, yback) in self.iter_actives(crop_symmetric=True)]
                 kernel.synchronize()
                 outDimTags,_=kernel.fragment([(dim,num) for dim,num  in kernel.getEntities()
                                         if (dim==2 and np.isclose(kernel.getCenterOfMass(dim,num)[2],-self.t_mesa))
@@ -337,13 +351,13 @@ class HEMT(DBBackedIDMixin):
             # Make the heat sources and contacts and gates
             heater_surfaces=[
                 kernel.addRectangle(xlef, yfore , 0, (xrit-xlef), (yback-yfore))
-                    for (xlef, xrit, yfore, yback) in self.iter_heaters(quarter_only=True)]
+                    for (xlef, xrit, yfore, yback) in self.iter_heaters(crop_symmetric=True)]
             contact_surfaces=[
                 kernel.addRectangle(xlef, yfore , 0, (xrit-xlef), (yback-yfore))
-                    for (xlef, xrit, yfore, yback) in self.iter_contacts(quarter_only=True)]
+                    for (xlef, xrit, yfore, yback) in self.iter_contacts(crop_symmetric=True)]
             gate_surfaces=[
                 kernel.addRectangle(xlef, yfore , 0, (xrit-xlef), (yback-yfore))
-                    for (xlef, xrit, yfore, yback) in self.iter_gates(quarter_only=True)]
+                    for (xlef, xrit, yfore, yback) in self.iter_gates(crop_symmetric=True)]
             kernel.synchronize()
             outDimTags,_=kernel.fragment([(dim,num) for dim,num  in kernel.getEntities()
                                     if (dim==2 and kernel.getCenterOfMass(dim,num)[2]==0)
@@ -353,7 +367,7 @@ class HEMT(DBBackedIDMixin):
             heater_and_gate_and_contact_surfaces=[dn[1] for dn in outDimTags if dn[0]==2
                     and kernel.getCenterOfMass(*dn)[2]==0 and len(gmsh.model.getAdjacencies(*dn)[1])==4]
             heater_surfaces=[dn[1] 
-                    for (xlef, xrit, yfore, yback) in self.iter_heaters(quarter_only=True)
+                    for (xlef, xrit, yfore, yback) in self.iter_heaters(crop_symmetric=True)
                         for dn in kernel.getEntitiesInBoundingBox(xlef-tol, yfore-tol, -tol, xrit+tol, yback+tol, tol, 2)]
 
 
@@ -417,7 +431,7 @@ class HEMT(DBBackedIDMixin):
                                                                  for tag in gmsh.model.getAdjacencies(2, src)[1]])
                 
                 # This group will be edges of the sources oriented along y (ie fixed x), excluding those at x=0 
-                source_line_ys=[y for _,_,yfore,yback in self.iter_heaters(quarter_only=True) for y in [yfore,yback]]
+                source_line_ys=[y for _,_,yfore,yback in self.iter_heaters(crop_symmetric=True) for y in [yfore,yback]]
                 source_far_edge_group=gmsh.model.addPhysicalGroup(1,[tag for src in heater_surfaces
                                                                      for tag in gmsh.model.getAdjacencies(2, src)[1]
                                                                      if any(np.isclose(kernel.getCenterOfMass(1,tag)[1], y) for y in source_line_ys if y>0)])
@@ -570,7 +584,7 @@ class HEMT(DBBackedIDMixin):
         gan = domain.create_region('GaN',  f'vertices in (z > {-self.t_GaN-tol:.8f})', 'cell')
         rel = domain.create_region('Rel', f'vertices in (z < {-self.t_GaN+tol:.8f}) *v vertices in (z > {-self.t_GaN-self.t_Rel-tol})', 'cell')
         sub = domain.create_region('Sub',  f'vertices in (z < {-self.t_GaN-self.t_Rel+tol:.8f})', 'cell')
-        symm = 4
+        symm = 4 if self.half_x else 2
         
         sources=[
             domain.create_region(f'SingleSource{isrc}',
@@ -580,7 +594,7 @@ class HEMT(DBBackedIDMixin):
                    f' vertices in (y < {yback+tol:.8f}) *v'\
                    f' vertices in (z > {-tol:.8f})'),'facet')
                 for isrc,(xlef, xrit, yfore, yback) \
-                    in enumerate(self.iter_heaters(quarter_only=True))]
+                    in enumerate(self.iter_heaters(crop_symmetric=True))]
         source = domain.create_region('TotalSource',
                    ' +s '.join('r.'+r.name for r in sources), 'facet') # type: ignore
         actives=[
@@ -591,7 +605,7 @@ class HEMT(DBBackedIDMixin):
                    f' vertices in (y < {yback+tol:.8f}) *v'\
                    f' vertices in (z > {     -tol:.8f})'),'facet')
                 for iact,(xlef, xrit, yfore, yback) \
-                    in enumerate(self.iter_actives(quarter_only=True))
+                    in enumerate(self.iter_actives(crop_symmetric=True))
         ]
         active = domain.create_region('TotalActive',
                    ' +s '.join('r.'+r.name for r in actives), 'facet') # type: ignore
@@ -604,14 +618,14 @@ class HEMT(DBBackedIDMixin):
                        f' vertices in (y < {yback+tol:.8f}) *v'
                        f' vertices in (z > {-tol:.8f})'),'facet')
                     for icont,(xlef, xrit, yfore, yback) \
-                        in enumerate(self.iter_contacts(quarter_only=True))]
+                        in enumerate(self.iter_contacts(crop_symmetric=True))]
             contact = domain.create_region('TotalContact',
                        ' +s '.join('r.'+r.name for r in contacts), 'facet') # type: ignore
         else:
             assert self.h_con==0, "dont_mesh_contacts=True only allowed if h_con=0"
             topsurface = domain.create_region('TopSurface', f'vertices in (z < {-tol:.8f})'.format(tol=tol), 'facet')
             contact = domain.create_region('TotalContact', f'r.TopSurface -s r.TotalSource'.format(tol=tol), 'facet', allow_empty=True)
-        if (not self.dont_mesh_gates) and len(list(self.iter_gates(quarter_only=True)))>0:
+        if (not self.dont_mesh_gates) and len(list(self.iter_gates(crop_symmetric=True)))>0:
             gates=[
                 domain.create_region(f'SingleGate{icont}',
                       (f' vertices in (x > {xlef -tol:.8f}) *v'\
@@ -620,7 +634,7 @@ class HEMT(DBBackedIDMixin):
                        f' vertices in (y < {yback+tol:.8f}) *v'
                        f' vertices in (z > {-tol:.8f})'),'facet')
                     for icont,(xlef, xrit, yfore, yback) \
-                        in enumerate(self.iter_gates(quarter_only=True))]
+                        in enumerate(self.iter_gates(crop_symmetric=True))]
             gate = domain.create_region('TotalGate',
                        ' +s '.join('r.'+r.name for r in gates), 'facet') # type: ignore
         else:
@@ -634,9 +648,15 @@ class HEMT(DBBackedIDMixin):
             sink = domain.create_region('Sink',
                        f'vertices in (z < {(-self.t_GaN-self.t_Rel-self.t_Sub+tol):.8f})','facet')
         else:
-            outr = domain.create_region('Outer',
-                          f' vertices in (x > {(self.l_chipx/2-tol):.8f}) +s'\
-                          f' vertices in (y > {(self.l_chipy/2-tol):.8f})', 'facet')
+            if self.half_x:
+                outr = domain.create_region('Outer',
+                              f' vertices in (x > {( self.l_chipx/2-tol):.8f}) +s'\
+                              f' vertices in (y > {( self.l_chipy/2-tol):.8f})', 'facet')
+            else:
+                outr = domain.create_region('Outer',
+                              f' vertices in (x > {( self.l_chipx/2-tol):.8f}) +s'\
+                              f' vertices in (x < {(-self.l_chipx/2+tol):.8f}) +s'\
+                              f' vertices in (y > {( self.l_chipy/2-tol):.8f})', 'facet')
             sioutr = domain.create_region('SiOuter',
                           f' vertices in (z < {(-self.t_GaN-self.t_Rel+tol):.8f}) *s'\
                           f' r.{outr.name}' # type: ignore
@@ -670,8 +690,8 @@ class HEMT(DBBackedIDMixin):
                     r=np.sqrt((coor**2).sum(axis=1))
                     x=coor[:,0]; y=coor[:,1]; z=coor[:,2]
 
-                    rhat_dot_nhat_where_nhat_along_x = (np.isclose(x,self.l_chipx/2,atol=tol) * (x/r))
-                    rhat_dot_nhat_where_nhat_along_y = (np.isclose(y,self.l_chipy/2,atol=tol) * (y/r))
+                    rhat_dot_nhat_where_nhat_along_x = (np.isclose(np.abs(x),self.l_chipx/2,atol=tol) * (np.abs(x)/r))
+                    rhat_dot_nhat_where_nhat_along_y = (np.isclose(       y ,self.l_chipy/2,atol=tol) * (       y /r))
                     rhat_dot_nhat_where_nhat_along_z = (np.isclose(z,-self.t_GaN-self.t_Rel-self.t_Sub,atol=tol) * (-z/r))
                     rhat_dot_nhat = rhat_dot_nhat_where_nhat_along_x + rhat_dot_nhat_where_nhat_along_y + rhat_dot_nhat_where_nhat_along_z
                     rhat_dot_nhat_times_one_over_r = rhat_dot_nhat / r
@@ -706,7 +726,7 @@ class HEMT(DBBackedIDMixin):
         pb.set_solver(nls)
         with time_it("Saving regions"):
             get_state_dir().mkdir(exist_ok=True, parents=True)
-            pb.save_regions_as_groups(get_state_dir()/f'hemt3d_regs_{self.simid}')
+            pb.save_regions_as_groups(get_state_dir()/f'hemt3d_regs_{self.simid}',region_names=['GaN','Rel','Sub','Sink','TotalSource','TotalGate','TotalContact','TotalActive'])
         with time_it("Solving"):
             coor_shape=pb.get_mesh_coors().shape
             state0=np.zeros(coor_shape[0],dtype=u.field.dtype)+self.T_A
@@ -858,7 +878,7 @@ class HEMT(DBBackedIDMixin):
             c=plt.plot(x_um, T_K, label=f'{float(depth)/um:.2f}')[0].get_color()
             plt.plot(-x_um, T_K,color=c)
         for xlef,xrit in set((xlef,xrit) for (xlef, xrit, yfore, yback)
-                                            in self.iter_heaters(quarter_only=False)):
+                                            in self.iter_heaters(crop_symmetric=False)):
             plt.axvspan(xlef/um, xrit/um, color='gray', alpha=0.3)
         #plt.axhline(info_to_save['mean_source_temp']/K, color='k', ls='--')#, label='Mean source T')
         plt.xlabel(r'Position (along current-flow direction) [μm]')
@@ -873,7 +893,7 @@ class HEMT(DBBackedIDMixin):
             c=plt.plot(y_um, T_K, label=f'{float(depth)/um:.2f}')[0].get_color()
             plt.plot(-y_um, T_K,color=c)
         for yfore,yback in set((yfore,yback) for (xlef, xrit, yfore, yback)
-                                            in self.iter_heaters(quarter_only=False)):
+                                            in self.iter_heaters(crop_symmetric=False)):
             plt.axvspan(yfore/um,yback/um, color='gray', alpha=0.3)
         #plt.axhline(info_to_save['mean_source_temp']/K, color='k', ls='--')#, label='Mean source T')
         plt.legend(title=r'Depth [μm]')
@@ -912,16 +932,19 @@ class HEMT(DBBackedIDMixin):
         import os
         os.system(f"sfepy-view {get_state_dir()}/hemt3d_regs_{self.simid}.vtk &")
     
-    def visualize_elements(self):
+    def visualize_elements(self, crop_symmetric:bool=False):
         """Visualize the 2D topsurface elements (heaters, contacts, gates) with matplotlib."""
         from matplotlib import pyplot as plt
-        for (xlef,xrit,yfore,yback) in self.iter_heaters(quarter_only=False):
+        for (xlef,xrit,yfore,yback) in self.iter_heaters(crop_symmetric=crop_symmetric):
             plt.plot([xlef/um,xrit/um,xrit/um,xlef/um,xlef/um],
                      [yfore/um,yfore/um,yback/um,yback/um,yfore/um], 'r-')
-        for (xlef,xrit,yfore,yback) in self.iter_contacts(quarter_only=False,even_if_not_meshing=True):
+        for (xlef,xrit,yfore,yback) in self.iter_contacts(crop_symmetric=crop_symmetric,even_if_not_meshing=True):
             plt.plot([xlef/um,xrit/um,xrit/um,xlef/um,xlef/um],
                      [yfore/um,yfore/um,yback/um,yback/um,yfore/um], '--',color='gold')
-        for (xlef,xrit,yfore,yback) in self.iter_actives(quarter_only=False):
+        for (xlef,xrit,yfore,yback) in self.iter_gates(crop_symmetric=crop_symmetric,even_if_not_meshing=True):
+            plt.plot([xlef/um,xrit/um,xrit/um,xlef/um,xlef/um],
+                     [yfore/um,yfore/um,yback/um,yback/um,yfore/um], '-.',color='grey')
+        for (xlef,xrit,yfore,yback) in self.iter_actives(crop_symmetric=crop_symmetric):
             plt.plot([xlef/um,xrit/um,xrit/um,xlef/um,xlef/um],
                      [yfore/um,yfore/um,yback/um,yback/um,yfore/um], ':',color='green')
         plt.xlabel('x [um]')

@@ -213,8 +213,40 @@ def test_hemt3d(show_gui:bool=False):
         print(f"Calculated RthWEff3D: {r3dcal/(K*mm/W):.2f} K mm/W")
         assert np.isclose(r3dcal, 3.15*K*mm/W, rtol=1e-2)
         assert np.isclose(r3dsim, r3dcal, rtol=.05), f"Simulated {r3dsim}, calculated {r3dcal}"
-        
+
+def test_symm(show_gui:bool=True):
+    """ Test that symmetric meshing options work as intended.
+    """
+    with specific_sim_work_dir("output/output_test/test_hemt_symm", clear=True):
+        h_halfx=HEMT(
+            n_f=2,
+            h_gat=3e7*W/(m**2*K), h_con=3e7*W/(m**2*K),
+            **common, w_f=2*um,
+            rows=1, row_pitch=7*um,
+            L_h=0.2*um, t_GaN=0.5*um, t_Rel=.4*um,
+            l_chipx=10*um, l_chipy=10*um,
+            k300_GaN=150*W/(m*K),k300_Rel=10*W/(m*K),k300_Sub=150*W/(m*K),
+            nthr_GaN=0, nthr_Rel=0, nthr_Sub=0,
+        )
+        h_fullx=HEMT( half_x=False,
+            n_f=2,
+            h_gat=3e7*W/(m**2*K), h_con=3e7*W/(m**2*K),
+            **common, w_f=2*um,
+            rows=1, row_pitch=7*um,
+            L_h=0.2*um, t_GaN=0.5*um, t_Rel=.4*um,
+            l_chipx=10*um, l_chipy=10*um,
+            k300_GaN=150*W/(m*K),k300_Rel=10*W/(m*K),k300_Sub=150*W/(m*K),
+            nthr_GaN=0, nthr_Rel=0, nthr_Sub=0,
+        )
+        mp1=h_halfx.get_mesh_path(force_remesh=True, show_gui=show_gui)
+        mp2=h_fullx.get_mesh_path(force_remesh=True, show_gui=show_gui)
+        assert mp1!=mp2, "Meshes should be different for half_x vs full_x!"
+        r3dsim1=h_halfx.get_siminfo(force_resim=True)['RthWEff3D Heater Avg [K.mm/W]'] * (K*mm/W)
+        r3dsim2=h_fullx.get_siminfo(force_resim=True)['RthWEff3D Heater Avg [K.mm/W]'] * (K*mm/W)
+        print(f"Simulated half_x {r3dsim1}, full_x {r3dsim2}")
+        assert np.isclose(r3dsim1, r3dsim2, rtol=1e-2), f"Simulated half_x {r3dsim1}, full_x {r3dsim2}"
 
 if __name__ == "__main__":
-    test_analytical_2d3d()
-    test_hemt3d(show_gui=False)
+    #test_analytical_2d3d()
+    #test_hemt3d(show_gui=False)
+    test_symm(show_gui=False)
