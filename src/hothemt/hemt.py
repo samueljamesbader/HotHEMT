@@ -772,7 +772,7 @@ class HEMT(DBBackedIDMixin):
         assert np.isclose(heat_flow_out_bottom_by_rel_flux, heat_flow_out_bottom_by_hbot, rtol=1e-2), "Heat flux out bottom by flux and by hbot do not match!"
         assert np.isclose(heat_flow_out_bottom_by_rel_flux, heat_flow_out_bottom_by_surf_flux, rtol=.2), "Heat flux out bottom by flux and by surface integral do not match!"
         info_to_save['heat_flux_in']=heat_flux_in
-        info_to_save['heat_flow_out']=heat_flow_out_bottom_by_rel_flux
+        info_to_save['heat_flow_out_bottom']=heat_flow_out_bottom_by_rel_flux
 
         bot_temps_elavg:np.ndarray=pb.evaluate('ev_integrate.i.Sink(u)', # type: ignore
                                            mymaterial=mat, u=u, integrals={'i':intgl}, mode='el_avg')
@@ -860,7 +860,7 @@ class HEMT(DBBackedIDMixin):
         for xlef,xrit in set((xlef,xrit) for (xlef, xrit, yfore, yback)
                                             in self.iter_heaters(quarter_only=False)):
             plt.axvspan(xlef/um, xrit/um, color='gray', alpha=0.3)
-        plt.axhline(info_to_save['mean_source_temp']/K, color='k', ls='--')#, label='Mean source T')
+        #plt.axhline(info_to_save['mean_source_temp']/K, color='k', ls='--')#, label='Mean source T')
         plt.xlabel(r'Position (along current-flow direction) [μm]')
         plt.ylabel(r'T [K]')
         plt.xlim(-self.l_chipx/2/um, self.l_chipx/2/um)
@@ -875,7 +875,7 @@ class HEMT(DBBackedIDMixin):
         for yfore,yback in set((yfore,yback) for (xlef, xrit, yfore, yback)
                                             in self.iter_heaters(quarter_only=False)):
             plt.axvspan(yfore/um,yback/um, color='gray', alpha=0.3)
-        plt.axhline(info_to_save['mean_source_temp']/K, color='k', ls='--')#, label='Mean source T')
+        #plt.axhline(info_to_save['mean_source_temp']/K, color='k', ls='--')#, label='Mean source T')
         plt.legend(title=r'Depth [μm]')
         plt.xlabel(r'Position (along gate line direction) [μm]')
         plt.ylabel(r'T [K]')
@@ -886,7 +886,7 @@ class HEMT(DBBackedIDMixin):
         zcut=profiles['zcut']
         depth_um,T_K = zcut['-z [um]'], zcut['T [K]']
         plt.plot(depth_um, T_K)
-        plt.axhline(info_to_save['mean_source_temp']/K, color='k', ls='--', label='Mean source T')
+        #plt.axhline(info_to_save['mean_source_temp']/K, color='k', ls='--', label='Mean source T')
         hp=info_to_save['hemt_parameters']
         plt.xlim(0, min(hp['t_GaN']/um + hp['t_Rel']/um + hp['t_Sub']/um, (hp['t_GaN']/um + hp['t_Rel']/um)*5))
         plt.axvline(hp['t_GaN']/um, color='gray', ls='--')
