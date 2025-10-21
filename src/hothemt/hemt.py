@@ -864,7 +864,7 @@ class HEMT(DBBackedIDMixin):
         print("Done")
         return info_to_save
     
-    def plot_temp_profile3d(self):
+    def plot_temp_profile3d(self, t_max:Optional[float]=None):
         """Plot the 1-D temperature profiles from the 3D simulation. """
         info_to_save=self.get_siminfo()
         import matplotlib.pyplot as plt
@@ -884,7 +884,7 @@ class HEMT(DBBackedIDMixin):
         plt.xlabel(r'Position (along current-flow direction) [μm]')
         plt.ylabel(r'T [K]')
         plt.xlim(-self.l_chipx/2/um, self.l_chipx/2/um)
-        plt.ylim(info_to_save['TA [K]'])
+        plt.ylim(ymin=info_to_save['TA [K]'], ymax=t_max)
         plt.legend(title=r'Depth [μm]')
         plt.subplot(1,3,2)
         ycuts=profiles['ycuts_by_depth']
@@ -900,7 +900,7 @@ class HEMT(DBBackedIDMixin):
         plt.xlabel(r'Position (along gate line direction) [μm]')
         plt.ylabel(r'T [K]')
         plt.xlim(-self.l_chipy/2/um, self.l_chipy/2/um)
-        plt.ylim(info_to_save['TA [K]'])
+        plt.ylim(ymin=info_to_save['TA [K]'], ymax=t_max)
         plt.legend(title=r'Depth [μm]')
         plt.subplot(1,3,3)
         zcut=profiles['zcut']
@@ -911,7 +911,7 @@ class HEMT(DBBackedIDMixin):
         plt.xlim(0, min(hp['t_GaN']/um + hp['t_Rel']/um + hp['t_Sub']/um, (hp['t_GaN']/um + hp['t_Rel']/um)*5))
         plt.axvline(hp['t_GaN']/um, color='gray', ls='--')
         plt.axvline((hp['t_GaN']+hp['t_Rel'])/um, color='gray', ls='--')
-        plt.ylim(info_to_save['TA [K]'])
+        plt.ylim(ymin=info_to_save['TA [K]'], ymax=t_max)
         plt.xlabel(r'Depth below gate [μm]')
         plt.ylabel(r'T [K]')
         plt.tight_layout()
