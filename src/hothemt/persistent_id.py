@@ -1,7 +1,8 @@
 from dataclasses import dataclass, fields
 from pathlib import Path
 import pickle
-from typing import Optional
+from typing import Optional, TypeVar, Type
+T=TypeVar('T',bound='DBBackedIDMixin')
 
 @dataclass()
 class DBBackedIDMixin:
@@ -43,8 +44,8 @@ class DBBackedIDMixin:
         return self._meshid
 
     """A mixin class to provide database-backed unique IDs for instances."""
-    @staticmethod
-    def from_simid(sim_id:int, sim_work_dir:Optional[str|Path]=None):
+    @classmethod
+    def from_simid(cls:Type[T], sim_id:int, sim_work_dir:Optional[str|Path]=None) -> T:
         """Load a HEMT instance from a previous simulation ID."""
         from hothemt import get_default_sim_work_dir, specific_sim_work_dir
         sim_work_dir=Path(sim_work_dir) if sim_work_dir is not None else get_default_sim_work_dir()

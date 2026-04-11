@@ -549,7 +549,7 @@ class HEMT(DBBackedIDMixin):
         assert self.sim_work_dir == get_default_sim_work_dir(), "Simulation context has changed since creation of HEMT object"
         
         info_filepath = get_info_dir() / f'hemt3d_info_{self.simid}.json'
-        if force_remesh: self.get_mesh_path(force_remesh=force_remesh)
+        if force_remesh: assert force_resim, "force_remesh=True only makes sense if also force_resim=True"
         if force_resim: info_filepath.unlink(missing_ok=True)
         if not info_filepath.exists():
             print(f"Need to run simulation to create {info_filepath}")
