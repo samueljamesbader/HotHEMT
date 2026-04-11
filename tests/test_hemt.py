@@ -214,7 +214,7 @@ def test_hemt3d(show_gui:bool=False):
         assert np.isclose(r3dcal, 3.15*K*mm/W, rtol=1e-2)
         assert np.isclose(r3dsim, r3dcal, rtol=.05), f"Simulated {r3dsim}, calculated {r3dcal}"
 
-def test_symm(show_gui:bool=True):
+def test_symm(show_gui:bool=False):
     """ Test that symmetric meshing options work as intended.
     """
     with specific_sim_work_dir("output/output_test/test_hemt_symm", clear=True):
