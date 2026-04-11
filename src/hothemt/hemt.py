@@ -1,5 +1,6 @@
 from itertools import chain
 import json
+import os
 import subprocess
 import sysconfig
 from dataclasses import asdict, dataclass
@@ -848,7 +849,7 @@ class HEMT(DBBackedIDMixin):
                                                          u=u, gate=gate_mat, integrals={'i':intgl}, mode='eval')*self.T_A
         heat_flow_out_by_surf_flux=heat_flow_out_bottom_by_surf_flux+heat_flow_out_contacts_by_surf_flux+heat_flow_out_gates_by_surf_flux
         heat_flow_out_by_hbot=heat_flow_out_bottom_by_hbot+heat_flow_out_contacts_by_hcon+heat_flow_out_gates_by_hcon
-        Wtot = self.w_f*self.n_f*self.rows
+        Wtot = self.w_f * len(list(self.iter_heaters(crop_symmetric=False,active_only=True)))
         print(f"Heat flux in: {heat_flux_in/Wtot/(W/mm):.2f} W/mm")
         print(f"Heat flux out bottom by mean flux in Rel: {heat_flow_out_bottom_by_rel_flux/Wtot/(W/mm):.2f} W/mm")
         print(f"Heat flux out by surf flux: {heat_flow_out_by_surf_flux/Wtot/(W/mm):.2f} W/mm (can be off if k is T-dependent, or boundary mesh is loose)")
@@ -985,18 +986,18 @@ class HEMT(DBBackedIDMixin):
 
     def visualize_mesh(self):
         """Visualize the 3D mesh with gmsh."""
-        gmsh_script = Path(sysconfig.get_path('scripts')) / 'gmsh'
-        subprocess.run([str(gmsh_script), str(self.get_mesh_path())])
+        env = {**os.environ, 'PATH': sysconfig.get_path('scripts') + os.pathsep + os.environ.get('PATH', '')}
+        subprocess.run(['gmsh', str(self.get_mesh_path())], env=env, shell=True)
    
     def visualize_solution_3d(self):
         """Visualize the 3D solution with sfepy-view."""
-        sfepy_view = Path(sysconfig.get_path('scripts')) / 'sfepy-view'
-        subprocess.Popen([str(sfepy_view), str(get_state_dir() / f'hemt3d_{self.simid}.vtk')])
+        env = {**os.environ, 'PATH': sysconfig.get_path('scripts') + os.pathsep + os.environ.get('PATH', '')}
+        subprocess.Popen(['sfepy-view', str(get_state_dir() / f'hemt3d_{self.simid}.vtk')], env=env, shell=True)
     
     def visualize_regs_3d(self):
         """Visualize the 3D regions with sfepy-view."""
-        sfepy_view = Path(sysconfig.get_path('scripts')) / 'sfepy-view'
-        subprocess.Popen([str(sfepy_view), str(get_state_dir() / f'hemt3d_regs_{self.simid}.vtk')])
+        env = {**os.environ, 'PATH': sysconfig.get_path('scripts') + os.pathsep + os.environ.get('PATH', '')}
+        subprocess.Popen(['sfepy-view', str(get_state_dir() / f'hemt3d_regs_{self.simid}.vtk')], env=env, shell=True)
     
     def visualize_elements(self, crop_symmetric:bool=False, active_only:bool=False):
         """Visualize the 2D topsurface elements (heaters, contacts, gates) with matplotlib."""
