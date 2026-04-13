@@ -2,7 +2,7 @@ from contextlib import contextmanager
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Sequence
 from multiprocessing import Pool
 import pandas as pd
 import time
@@ -172,7 +172,7 @@ class SimTask(Task):
         print(f"Finished")
         return {k:v for k,v in info.items() if isinstance(v,(int,float,str))}
 
-def run_hemts(hemts: list[HEMT],nproc:Optional[int]=None,
+def run_hemts(hemts: Sequence[HEMT],nproc:Optional[int]=None,
               force_remesh: bool = False, force_resim: bool = False,
               mesh_only:bool = False):
     task_dependencies: dict[Task,list[Task]]={}
