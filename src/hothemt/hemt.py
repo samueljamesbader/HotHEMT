@@ -861,6 +861,12 @@ class HEMT(DBBackedIDMixin):
         info_to_save['heat_flux_in']=heat_flux_in
         info_to_save['heat_flow_out_bottom']=heat_flow_out_bottom_by_rel_flux
 
+        source_temps_elavg:np.ndarray=pb.evaluate('ev_integrate.i.TotalSource(u)', # type: ignore
+                                           mymaterial=mat, u=u, integrals={'i':intgl}, mode='el_avg')
+        max_source_temp:float=source_temps_elavg.max() # type: ignore
+        info_to_save['max_source_temp']=max_source_temp
+        info_to_save['RthWEff3D Spike [K.mm/W]']= (max_source_temp-self.T_A)/(heat_flux_in/Wtot)/(K*mm/W)
+        
         bot_temps_elavg:np.ndarray=pb.evaluate('ev_integrate.i.Sink(u)', # type: ignore
                                            mymaterial=mat, u=u, integrals={'i':intgl}, mode='el_avg')
         max_bot_temp:float=bot_temps_elavg.max() # type: ignore
