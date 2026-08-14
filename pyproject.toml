@@ -36,11 +36,13 @@ dependencies = [
     "pyparsing>=3.2,<4.0",
     "numpy>=2.5,<2.7",
 
-    # Unless specified explicitly, other dependencies
-    # may install this package on Windows but not Linux, which means
+    # Unless specified explicitly, other dependencies may install
+    # these packages e.g. only on Windows but not Linux, which means
     # the requirements.txt file will be different for Windows/Linux
-    # which breaks the simple CI
+    # which breaks the simple CI that checks whether requirements.txt
+    # and pyproject.toml are consistent
     "colorama>=0.4.6,<1",
+    "tzdata",
 ]
 
 [project.optional-dependencies]
