@@ -18,6 +18,8 @@ jobs:
         with:
           python-version: "3.14"
           cache: "pip"
+      - name: Install gmsh dependencies
+        run: sudo apt-get install -y libglu1-mesa
       # Pin pip version to prevent pip-compile failures: https://github.com/pypa/pip/issues/14214
       - name: Pin pip version
         run: pip install "pip==26.1.2"
