@@ -10,30 +10,43 @@ authors = [
 ]
 description = "Open-source HEMT thermal simulations"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.15"
 license = { file = "LICENSE.txt" }
+
+# Known dependency constraints:
+# - sfepy (as of 2026.2) uses load_module() which is targeted for removal in Python 3.15
+# - sfepy uses a few deprecated pyparsing functions targeted for removal in pyparsing 4.0
+# - sfepy uses setting shape on numpy array, which is deprecated since numpy 2.5
+# Providing these constraints here and filtering the relevant warnings in pytest.ini
 
 dependencies = [
     # for making the mesh
-    "gmsh == 4.14.1",
+    "gmsh",
 
     # for solving the FEM
-    "sfepy == 2025.3",
+    "sfepy",
 
-    # Otherwise, sfepy gives warnings
-    "jax == 0.7.2", 
+    # otherwise, sfepy gives warnings
+    "jax", 
 
-    # pinned to prevent set_new_attribute error
-    "pyvista == 0.45.3", 
+    # Used by multiproc
+    "pandas",
 
-    # Misc
-    "pytest",
-    "pandas"
+    # required by sfepy but pinned here (see above constraints)
+    "pyparsing>=3.2,<4.0",
+    "numpy>=2.5,<2.7",
+
+    # Unless specified explicitly, other dependencies
+    # may install this package on Windows but not Linux, which means
+    # the requirements.txt file will be different for Windows/Linux
+    # which breaks the simple CI
+    "colorama>=0.4.6,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest"
+    "pytest",
+    "pip-tools"
 ]
 
 [tool.setuptools.packages.find]
