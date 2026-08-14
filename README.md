@@ -1,4 +1,6 @@
 # HotHEMT
+[![Source Tests](https://github.com/samueljamesbader/PyNitride/actions/workflows/tests.yml/badge.svg)](https://github.com/samueljamesbader/PyNitride/actions/workflows/tests.yml)
+
 This package uses open-source tools to simulate thermal resistances for HEMT structures.  Specifically [gmsh](https://gmsh.info/) is used to create 3-D meshes and [SFEpy](https://sfepy.org) is used to solve the Finite-Element problem on the mesh.
 
 The phyiscs is straightforward: self-heating is handled by simply assuming uniform heaters of specified size at the drain-edge of the gate, and Fourier's Law is solved (with potentially temperature-dependent thermal conductivities) on the user-specified geometry for the heat flows.
